@@ -70,27 +70,29 @@ export async function POST(req: NextRequest) {
     // Check if API key is not configured
     if (!apiKey || apiKey === 'your_openai_api_key_here' || apiKey.startsWith('sk-placeholder')) {
       if (enableDemo) {
-        // Return a realistic simulation to allow UI testing without crashing
-        await new Promise((resolve) => setTimeout(resolve, 1800)); // Simulate generation latency
-        const demoImageUrl = getDemoImage(prompt);
-        const demoResult: GeneratedImageResult = {
-          id: `demo-${Date.now()}`,
-          imageUrl: demoImageUrl,
+        const [w, h] = size === '1024x1792' ? [768, 1344] : size === '1792x1024' ? [1344, 768] : [1024, 1024];
+        const seed = Math.floor(Math.random() * 10000000);
+        const freeFluxUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.trim())}?width=${w}&height=${h}&model=flux&seed=${seed}&nologo=true`;
+
+        const freeResult: GeneratedImageResult = {
+          id: `flux-${Date.now()}`,
+          imageUrl: freeFluxUrl,
           prompt: prompt.trim(),
-          revisedPrompt: `High dynamic range visualization: ${prompt.trim()}, masterpiece quality, ultra-detailed textures, volumetric lighting.`,
+          revisedPrompt: `High-fidelity neural synthesis: ${prompt.trim()}`,
           styleApplied: style || 'Default',
           size: size || '1024x1024',
-          model: `${model} (Demo Simulation)`,
+          model: 'FLUX.1-schnell (Free AI Model)',
           createdAt: new Date().toISOString(),
-          isDemo: true,
+          isDemo: false,
         };
 
         return NextResponse.json<GenerateApiResponse>({
           success: true,
-          url: demoImageUrl,
-          imageUrl: demoImageUrl,
-          data: demoResult,
-          isDemo: true,
+          url: freeFluxUrl,
+          imageUrl: freeFluxUrl,
+          data: freeResult,
+          isDemo: false,
+          details: 'Generated with free FLUX.1 model (no API key required).',
         });
       }
 
@@ -152,29 +154,31 @@ export async function POST(req: NextRequest) {
       const errorMessage = data?.error?.message || 'Failed to generate image from OpenAI.';
       const statusCode = response.status;
 
-      // If user enabled demo fallback and account is out of credits (429), fall back to preview simulation with notice
+      // If user enabled demo fallback and account is out of credits (429), fall back to live free FLUX.1 generation
       if (enableDemo && statusCode === 429) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        const demoImageUrl = getDemoImage(prompt);
-        const demoResult: GeneratedImageResult = {
-          id: `demo-${Date.now()}`,
-          imageUrl: demoImageUrl,
+        const [w, h] = size === '1024x1792' ? [768, 1344] : size === '1792x1024' ? [1344, 768] : [1024, 1024];
+        const seed = Math.floor(Math.random() * 10000000);
+        const freeFluxUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt.trim())}?width=${w}&height=${h}&model=flux&seed=${seed}&nologo=true`;
+
+        const freeResult: GeneratedImageResult = {
+          id: `flux-${Date.now()}`,
+          imageUrl: freeFluxUrl,
           prompt: prompt.trim(),
-          revisedPrompt: `High dynamic range visualization: ${prompt.trim()}, masterpiece quality, ultra-detailed textures, volumetric lighting.`,
+          revisedPrompt: `Synthesized via FLUX.1 neural engine: ${prompt.trim()}`,
           styleApplied: style || 'Default',
           size: size || '1024x1024',
-          model: `${model} (Simulated - Quota Exceeded)`,
+          model: 'FLUX.1-schnell (Free AI Model)',
           createdAt: new Date().toISOString(),
-          isDemo: true,
+          isDemo: false,
         };
 
         return NextResponse.json<GenerateApiResponse>({
           success: true,
-          url: demoImageUrl,
-          imageUrl: demoImageUrl,
-          data: demoResult,
-          isDemo: true,
-          details: 'Your OpenAI account has 0 credits remaining. Add credits at platform.openai.com/settings/organization/billing to enable live DALL-E generation.',
+          url: freeFluxUrl,
+          imageUrl: freeFluxUrl,
+          data: freeResult,
+          isDemo: false,
+          details: 'OpenAI quota exceeded ($0 credit). Generated using free FLUX.1 model.',
         });
       }
 
