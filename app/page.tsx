@@ -89,7 +89,7 @@ export default function Home() {
       const data: GenerateApiResponse = await res.json();
 
       if (!res.ok || !data.success || (!data.data && !data.url)) {
-        const msg = data.error || 'Failed to generate image. Please verify your API key or network.';
+        const msg = data.details || data.error || 'Failed to generate image. Please verify your API key or network.';
         setErrorNotice(msg);
         addToast('error', 'Generation Error', msg);
         return;

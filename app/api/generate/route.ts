@@ -152,11 +152,37 @@ export async function POST(req: NextRequest) {
       const errorMessage = data?.error?.message || 'Failed to generate image from OpenAI.';
       const statusCode = response.status;
 
+      // If user enabled demo fallback and account is out of credits (429), fall back to preview simulation with notice
+      if (enableDemo && statusCode === 429) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        const demoImageUrl = getDemoImage(prompt);
+        const demoResult: GeneratedImageResult = {
+          id: `demo-${Date.now()}`,
+          imageUrl: demoImageUrl,
+          prompt: prompt.trim(),
+          revisedPrompt: `High dynamic range visualization: ${prompt.trim()}, masterpiece quality, ultra-detailed textures, volumetric lighting.`,
+          styleApplied: style || 'Default',
+          size: size || '1024x1024',
+          model: `${model} (Simulated - Quota Exceeded)`,
+          createdAt: new Date().toISOString(),
+          isDemo: true,
+        };
+
+        return NextResponse.json<GenerateApiResponse>({
+          success: true,
+          url: demoImageUrl,
+          imageUrl: demoImageUrl,
+          data: demoResult,
+          isDemo: true,
+          details: 'Your OpenAI account has 0 credits remaining. Add credits at platform.openai.com/settings/organization/billing to enable live DALL-E generation.',
+        });
+      }
+
       let userFriendlyError = errorMessage;
       if (statusCode === 401) {
         userFriendlyError = 'Invalid OpenAI API key. Please check your credentials in .env.local.';
       } else if (statusCode === 429) {
-        userFriendlyError = 'OpenAI rate limit or billing quota exceeded. Please check your account usage and limits.';
+        userFriendlyError = errorMessage || 'OpenAI rate limit or billing quota exceeded. Please check your account usage and limits.';
       } else if (statusCode === 400 && errorMessage.toLowerCase().includes('safety')) {
         userFriendlyError = 'The prompt was flagged by OpenAI safety guidelines. Please modify your prompt and try again.';
       }
